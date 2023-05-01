@@ -472,7 +472,7 @@ wp_enqueue_style( 'ie' );
 ?>
 <script type="text/javascript">
 addLoadEvent = function(func){if(typeof jQuery!="undefined")jQuery(document).ready(func);else if(typeof wpOnload!='function'){wpOnload=func;}else{var oldonload=wpOnload;wpOnload=function(){oldonload();func();}}};
-var ajaxurl = '<?php echo esc_js( admin_url( 'admin-ajax.php', 'relative' ) ); ?>', pagenow = 'media-upload-popup', adminpage = 'media-upload-popup',
+var ajaxurl = '<?php echo admin_url( 'admin-ajax.php', 'relative' ); ?>', pagenow = 'media-upload-popup', adminpage = 'media-upload-popup',
 isRtl = <?php echo (int) is_rtl(); ?>;
 </script>
 <?php
@@ -2825,11 +2825,8 @@ function edit_form_image_editor( $post ) {
 	<label for="attachment_content"><strong><?php _e( 'Description' ); ?></strong><?php
 	if ( preg_match( '#^(audio|video)/#', $post->post_mime_type ) ) {
 		echo ': ' . __( 'Displayed on attachment pages.' );
-	}
-
-	?>
-	</label>
-	<?php wp_editor( format_to_edit( $post->post_content ), 'attachment_content', $editor_args ); ?>
+	} ?></label>
+	<?php wp_editor( $post->post_content, 'attachment_content', $editor_args ); ?>
 
 	</div>
 	<?php
@@ -2985,7 +2982,7 @@ function wp_add_id3_tag_data( &$metadata, $data ) {
 		if ( ! empty( $data[$version]['comments'] ) ) {
 			foreach ( $data[$version]['comments'] as $key => $list ) {
 				if ( 'length' !== $key && ! empty( $list ) ) {
-					$metadata[$key] = wp_kses_post( reset( $list ) );
+					$metadata[$key] = reset( $list );
 					// Fix bug in byte stream analysis.
 					if ( 'terms_of_use' === $key && 0 === strpos( $metadata[$key], 'yright notice.' ) )
 						$metadata[$key] = 'Cop' . $metadata[$key];

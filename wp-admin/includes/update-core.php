@@ -705,9 +705,6 @@ $_old_files = array(
 'wp-includes/theme-compat/comments-popup.php',
 // 4.6
 'wp-admin/includes/class-wp-automatic-upgrader.php', // Wrong file name, see #37628.
-// 4.9.2
-'wp-includes/js/mediaelement/flashmediaelement.swf',
-'wp-includes/js/mediaelement/silverlightmediaelement.xap',
 );
 
 /**
@@ -1087,11 +1084,7 @@ function update_core($from, $to) {
 		$old_file = $to . $old_file;
 		if ( !$wp_filesystem->exists($old_file) )
 			continue;
-
-		// If the file isn't deleted, try writing an empty string to the file instead.
-		if ( ! $wp_filesystem->delete( $old_file, true ) && $wp_filesystem->is_file( $old_file ) ) {
-			$wp_filesystem->put_contents( $old_file, '' );
-		}
+		$wp_filesystem->delete($old_file, true);
 	}
 
 	// Remove any Genericons example.html's from the filesystem

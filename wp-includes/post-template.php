@@ -324,7 +324,23 @@ function get_the_content( $more_link_text = null, $strip_teaser = false ) {
 		}
 	}
 
+	if ( $preview ) // Preview fix for JavaScript bug with foreign languages.
+		$output =	preg_replace_callback( '/\%u([0-9A-F]{4})/', '_convert_urlencoded_to_entities', $output );
+
 	return $output;
+}
+
+/**
+ * Preview fix for JavaScript bug with foreign languages.
+ *
+ * @since 3.1.0
+ * @access private
+ *
+ * @param array $match Match array from preg_replace_callback.
+ * @return string
+ */
+function _convert_urlencoded_to_entities( $match ) {
+	return '&#' . base_convert( $match[1], 16, 10 ) . ';';
 }
 
 /**
@@ -994,10 +1010,10 @@ function post_custom( $key = '' ) {
  *
  * @since 1.2.0
  *
- * @deprecated 6.0.2 Use get_post_meta() to retrieve post meta and render manually.
+ * @internal This will probably change at some point...
+ *
  */
 function the_meta() {
-	_deprecated_function( __FUNCTION__, '6.0.2', 'get_post_meta()' );
 	if ( $keys = get_post_custom_keys() ) {
 		echo "<ul class='post-meta'>\n";
 		foreach ( (array) $keys as $key ) {
@@ -1016,7 +1032,7 @@ function the_meta() {
 			 * @param string $key   Meta key.
 			 * @param string $value Meta value.
 			 */
-			echo apply_filters( 'the_meta_key', "<li><span class='post-meta-key'>" . esc_html( $key ) . ":</span>" . esc_html( $value ) . "</li>\n", $key, $value );
+			echo apply_filters( 'the_meta_key', "<li><span class='post-meta-key'>$key:</span> $value</li>\n", $key, $value );
 		}
 		echo "</ul>\n";
 	}

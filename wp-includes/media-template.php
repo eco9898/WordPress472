@@ -163,7 +163,7 @@ function wp_print_media_templates() {
 
 	<script type="text/html" id="tmpl-media-modal">
 		<div class="<?php echo $class; ?>">
-			<button type="button" class="media-modal-close"><span class="media-modal-icon"><span class="screen-reader-text"><?php _e( 'Close media panel' ); ?></span></span></button>
+			<button type="button" class="button-link media-modal-close"><span class="media-modal-icon"><span class="screen-reader-text"><?php _e( 'Close media panel' ); ?></span></span></button>
 			<div class="media-modal-content"></div>
 		</div>
 		<div class="media-modal-backdrop"></div>
@@ -1249,7 +1249,7 @@ function wp_print_media_templates() {
 			<div class="favicon">
 				<img id="preview-favicon" src="{{ data.url }}" alt="<?php esc_attr_e( 'Preview as a browser icon' ); ?>"/>
 			</div>
-			<span class="browser-title" aria-hidden="true"><?php echo esc_js( get_bloginfo( 'name' ) ); ?></span>
+			<span class="browser-title" aria-hidden="true"><?php bloginfo( 'name' ); ?></span>
 		</div>
 
 		<strong aria-hidden="true"><?php _e( 'As an app icon' ); ?></strong>

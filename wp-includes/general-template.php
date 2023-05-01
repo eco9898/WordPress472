@@ -715,7 +715,7 @@ function get_bloginfo( $show = '', $filter = 'raw' ) {
 			 */
 			$output = __( 'html_lang_attribute' );
 			if ( 'html_lang_attribute' === $output || preg_match( '/[^a-zA-Z0-9-]/', $output ) ) {
-				$output = is_admin() ? get_user_locale() : get_locale();
+				$output = get_locale();
 				$output = str_replace( '_', '-', $output );
 			}
 			break;
@@ -2773,24 +2773,6 @@ function wp_no_robots() {
 }
 
 /**
- * Display a noindex,noarchive meta tag and referrer origin-when-cross-origin meta tag.
- *
- * Outputs a noindex,noarchive meta tag that tells web robots not to index or cache the page content.
- * Outputs a referrer origin-when-cross-origin meta tag that tells the browser not to send the full
- * url as a referrer to other sites when cross-origin assets are loaded.
- *
- * Typical usage is as a wp_head callback. add_action( 'wp_head', 'wp_sensitive_page_meta' );
- *
- * @since 5.0.0
- */
-function wp_sensitive_page_meta() {
-	?>
-	<meta name='robots' content='noindex,noarchive' />
-	<meta name='referrer' content='strict-origin-when-cross-origin' />
-	<?php
-}
-
-/**
  * Display site icon meta tags.
  *
  * @since 4.3.0
@@ -3136,14 +3118,12 @@ function get_language_attributes( $doctype = 'html' ) {
 	if ( function_exists( 'is_rtl' ) && is_rtl() )
 		$attributes[] = 'dir="rtl"';
 
-	if ( $lang = get_bloginfo( 'language' ) ) {
-		if ( get_option( 'html_type' ) == 'text/html' || $doctype == 'html' ) {
-			$attributes[] = 'lang="' . esc_attr( $lang ) . '"';
-		}
+	if ( $lang = get_bloginfo('language') ) {
+		if ( get_option('html_type') == 'text/html' || $doctype == 'html' )
+			$attributes[] = "lang=\"$lang\"";
 
-		if ( get_option( 'html_type' ) != 'text/html' || $doctype == 'xhtml' ) {
-			$attributes[] = 'xml:lang="' . esc_attr( $lang ) . '"';
-		}
+		if ( get_option('html_type') != 'text/html' || $doctype == 'xhtml' )
+			$attributes[] = "xml:lang=\"$lang\"";
 	}
 
 	$output = implode(' ', $attributes);
@@ -3676,25 +3656,25 @@ function get_the_generator( $type = '' ) {
 
 	switch ( $type ) {
 		case 'html':
-			$gen = '<meta name="generator" content="WordPress ' . esc_attr( get_bloginfo( 'version' ) ) . '">';
+			$gen = '<meta name="generator" content="WordPress ' . get_bloginfo( 'version' ) . '">';
 			break;
 		case 'xhtml':
-			$gen = '<meta name="generator" content="WordPress ' . esc_attr( get_bloginfo( 'version' ) ) . '" />';
+			$gen = '<meta name="generator" content="WordPress ' . get_bloginfo( 'version' ) . '" />';
 			break;
 		case 'atom':
-			$gen = '<generator uri="https://wordpress.org/" version="' . esc_attr( get_bloginfo_rss( 'version' ) ) . '">WordPress</generator>';
+			$gen = '<generator uri="https://wordpress.org/" version="' . get_bloginfo_rss( 'version' ) . '">WordPress</generator>';
 			break;
 		case 'rss2':
-			$gen = '<generator>' . esc_url_raw( 'https://wordpress.org/?v=' . get_bloginfo_rss( 'version' ) ) . '</generator>';
+			$gen = '<generator>https://wordpress.org/?v=' . get_bloginfo_rss( 'version' ) . '</generator>';
 			break;
 		case 'rdf':
-			$gen = '<admin:generatorAgent rdf:resource="' . esc_url_raw( 'https://wordpress.org/?v=' . get_bloginfo_rss( 'version' ) ) . '" />';
+			$gen = '<admin:generatorAgent rdf:resource="https://wordpress.org/?v=' . get_bloginfo_rss( 'version' ) . '" />';
 			break;
 		case 'comment':
-			$gen = '<!-- generator="WordPress/' . esc_attr( get_bloginfo( 'version' ) ) . '" -->';
+			$gen = '<!-- generator="WordPress/' . get_bloginfo( 'version' ) . '" -->';
 			break;
 		case 'export':
-			$gen = '<!-- generator="WordPress/' . esc_attr( get_bloginfo_rss( 'version' ) ) . '" created="' . date( 'Y-m-d H:i' ) . '" -->';
+			$gen = '<!-- generator="WordPress/' . get_bloginfo_rss('version') . '" created="'. date('Y-m-d H:i') . '" -->';
 			break;
 	}
 

@@ -1213,6 +1213,18 @@ function bool_from_yn( $yn ) {
 function do_feed() {
 	global $wp_query;
 
+	// Determine if we are looking at the main comment feed
+	$is_main_comments_feed = ( $wp_query->is_comment_feed() && ! $wp_query->is_singular() );
+
+	/*
+	 * Check the queried object for the existence of posts if it is not a feed for an archive,
+	 * search result, or main comments. By checking for the absense of posts we can prevent rendering the feed
+	 * templates at invalid endpoints. e.g.) /wp-content/plugins/feed/
+	 */
+	if ( ! $wp_query->have_posts() && ! ( $wp_query->is_archive() || $wp_query->is_search() || $is_main_comments_feed ) ) {
+		wp_die( __( 'ERROR: This is not a valid feed.' ), '', array( 'response' => 404 ) );
+	}
+
 	$feed = get_query_var( 'feed' );
 
 	// Remove the pad, if present.
@@ -1608,11 +1620,6 @@ function wp_mkdir_p( $target ) {
 	if ( file_exists( $target ) )
 		return @is_dir( $target );
 
-	// Do not allow path traversals.
-	if ( false !== strpos( $target, '../' ) || false !== strpos( $target, '..' . DIRECTORY_SEPARATOR ) ) {
-		return false;
-	}
-
 	// We need to find the permissions of the parent folder that exists and inherit that.
 	$target_parent = dirname( $target );
 	while ( '.' != $target_parent && ! is_dir( $target_parent ) ) {
@@ -1704,30 +1711,17 @@ function path_join( $base, $path ) {
  * @since 3.9.0
  * @since 4.4.0 Ensures upper-case drive letters on Windows systems.
  * @since 4.5.0 Allows for Windows network shares.
- * @since 4.9.7 Allows for PHP file wrappers.
  *
  * @param string $path Path to normalize.
  * @return string Normalized path.
  */
 function wp_normalize_path( $path ) {
-	$wrapper = '';
-	if ( wp_is_stream( $path ) ) {
-		list( $wrapper, $path ) = explode( '://', $path, 2 );
-		$wrapper .= '://';
-	}
-
-	// Standardise all paths to use /
 	$path = str_replace( '\\', '/', $path );
-
-	// Replace multiple slashes down to a singular, allowing for network shares having two slashes.
 	$path = preg_replace( '|(?<=.)/+|', '/', $path );
-
-	// Windows paths should uppercase the drive letter
 	if ( ':' === substr( $path, 1, 1 ) ) {
 		$path = ucfirst( $path );
 	}
-
-	return $wrapper . $path;
+	return $path;
 }
 
 /**
@@ -2080,7 +2074,7 @@ function wp_unique_filename( $dir, $filename, $unique_filename_callback = null )
 
 			// Check for both lower and upper case extension or image sub-sizes may be overwritten.
 			while ( file_exists($dir . "/$filename") || file_exists($dir . "/$filename2") ) {
-				$new_number = (int) $number + 1;
+				$new_number = $number + 1;
 				$filename = str_replace( array( "-$number$ext", "$number$ext" ), "-$new_number$ext", $filename );
 				$filename2 = str_replace( array( "-$number$ext2", "$number$ext2" ), "-$new_number$ext2", $filename2 );
 				$number = $new_number;
@@ -2100,13 +2094,11 @@ function wp_unique_filename( $dir, $filename, $unique_filename_callback = null )
 		}
 
 		while ( file_exists( $dir . "/$filename" ) ) {
-			$new_number = (int) $number + 1;
 			if ( '' == "$number$ext" ) {
-				$filename = "$filename-" . $new_number;
+				$filename = "$filename-" . ++$number;
 			} else {
-				$filename = str_replace( array( "-$number$ext", "$number$ext" ), "-" . $new_number . $ext, $filename );
+				$filename = str_replace( array( "-$number$ext", "$number$ext" ), "-" . ++$number . $ext, $filename );
 			}
-			$number = $new_number;
 		}
 	}
 
@@ -2286,15 +2278,15 @@ function wp_check_filetype_and_ext( $file, $filename, $mimes = null ) {
 		return compact( 'ext', 'type', 'proper_filename' );
 	}
 
-	$real_mime = false;
-
 	// Validate image types.
 	if ( $type && 0 === strpos( $type, 'image/' ) ) {
 
 		// Attempt to figure out what type of image it actually is
 		$real_mime = wp_get_image_mime( $file );
 
-		if ( $real_mime && $real_mime != $type ) {
+		if ( ! $real_mime ) {
+			$type = $ext = false;
+		} elseif ( $real_mime != $type ) {
 			/**
 			 * Filters the list mapping image mime types to their respective extensions.
 			 *
@@ -2325,63 +2317,17 @@ function wp_check_filetype_and_ext( $file, $filename, $mimes = null ) {
 				$ext = $wp_filetype['ext'];
 				$type = $wp_filetype['type'];
 			} else {
-				// Reset $real_mime and try validating again.
-				$real_mime = false;
+				$type = $ext = false;
 			}
 		}
-	}
-
-	// Validate files that didn't get validated during previous checks.
-	if ( $type && ! $real_mime && extension_loaded( 'fileinfo' ) ) {
+	} elseif ( function_exists( 'finfo_file' ) ) {
+		// Use finfo_file if available to validate non-image files.
 		$finfo = finfo_open( FILEINFO_MIME_TYPE );
 		$real_mime = finfo_file( $finfo, $file );
 		finfo_close( $finfo );
 
-		// fileinfo often misidentifies obscure files as one of these types
-		$nonspecific_types = array(
-			'application/octet-stream',
-			'application/encrypted',
-			'application/CDFV2-encrypted',
-			'application/zip',
-		);
-
-		/*
-		 * If $real_mime doesn't match the content type we're expecting from the file's extension,
-		 * we need to do some additional vetting. Media types and those listed in $nonspecific_types are
-		 * allowed some leeway, but anything else must exactly match the real content type.
-		 */
-		if ( in_array( $real_mime, $nonspecific_types, true ) ) {
-			// File is a non-specific binary type. That's ok if it's a type that generally tends to be binary.
-			if ( !in_array( substr( $type, 0, strcspn( $type, '/' ) ), array( 'application', 'video', 'audio' ) ) ) {
-				$type = $ext = false;
-			}
-		} elseif ( 0 === strpos( $real_mime, 'video/' ) || 0 === strpos( $real_mime, 'audio/' ) ) {
-			/*
-			 * For these types, only the major type must match the real value.
-			 * This means that common mismatches are forgiven: application/vnd.apple.numbers is often misidentified as application/zip,
-			 * and some media files are commonly named with the wrong extension (.mov instead of .mp4)
-			 */
-
-			if ( substr( $real_mime, 0, strcspn( $real_mime, '/' ) ) !== substr( $type, 0, strcspn( $type, '/' ) ) ) {
-				$type = $ext = false;
-			}
-		} else {
-			if ( $type !== $real_mime ) {
-				/*
-				 * Everything else including image/* and application/*:
-				 * If the real content type doesn't match the file extension, assume it's dangerous.
-				 */
-				$type = $ext = false;
-			}
-
-		}
-	}
-
-	// The mime type must be allowed
-	if ( $type ) {
-		$allowed = get_allowed_mime_types();
-
-		if ( ! in_array( $type, $allowed ) ) {
+		// If the extension does not match the file's real type, return false.
+		if ( $real_mime !== $type ) {
 			$type = $ext = false;
 		}
 	}
@@ -2419,8 +2365,7 @@ function wp_get_image_mime( $file ) {
 	 */
 	try {
 		if ( is_callable( 'exif_imagetype' ) ) {
-			$imagetype = exif_imagetype( $file );
-			$mime = ( $imagetype ) ? image_type_to_mime_type( $imagetype ) : false;
+			$mime = image_type_to_mime_type( exif_imagetype( $file ) );
 		} elseif ( function_exists( 'getimagesize' ) ) {
 			$imagesize = getimagesize( $file );
 			$mime = ( isset( $imagesize['mime'] ) ) ? $imagesize['mime'] : false;
@@ -2605,9 +2550,8 @@ function get_allowed_mime_types( $user = null ) {
 	if ( function_exists( 'current_user_can' ) )
 		$unfiltered = $user ? user_can( $user, 'unfiltered_html' ) : current_user_can( 'unfiltered_html' );
 
-	if ( empty( $unfiltered ) ) {
-		unset( $t['htm|html'], $t['js'] );
-	}
+	if ( empty( $unfiltered ) )
+		unset( $t['htm|html'] );
 
 	/**
 	 * Filters list of allowed mime types and file extensions.
@@ -2649,12 +2593,9 @@ function wp_nonce_ays( $action ) {
 	} else {
 		$html = __( 'Are you sure you want to do this?' );
 		if ( wp_get_referer() ) {
-			$wp_http_referer = remove_query_arg( 'updated', wp_get_referer() );
-			$wp_http_referer = wp_validate_redirect( esc_url_raw( $wp_http_referer ) );
-			$html           .= '</p><p>';
-			$html           .= sprintf(
-				'<a href="%s">%s</a>',
-				esc_url( $wp_http_referer ),
+			$html .= '</p><p>';
+			$html .= sprintf( '<a href="%s">%s</a>',
+				esc_url( remove_query_arg( 'updated', wp_get_referer() ) ),
 				__( 'Please try again.' )
 			);
 		}
@@ -5499,28 +5440,6 @@ function wp_delete_file( $file ) {
 	if ( ! empty( $delete ) ) {
 		@unlink( $delete );
 	}
-}
-
-/**
- * Deletes a file if its path is within the given directory.
- *
- * @since 4.9.7
- *
- * @param string $file      Absolute path to the file to delete.
- * @param string $directory Absolute path to a directory.
- * @return bool True on success, false on failure.
- */
-function wp_delete_file_from_directory( $file, $directory ) {
-	$real_file = realpath( wp_normalize_path( $file ) );
-	$real_directory = realpath( wp_normalize_path( $directory ) );
-
-	if ( false === $real_file || false === $real_directory || strpos( wp_normalize_path( $real_file ), trailingslashit( wp_normalize_path( $real_directory ) ) ) !== 0 ) {
-		return false;
-	}
-
-	wp_delete_file( $file );
-
-	return true;
 }
 
 /**

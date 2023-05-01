@@ -1020,8 +1020,6 @@ function wp_ajax_replyto_comment( $action ) {
 			if ( wp_create_nonce( 'unfiltered-html-comment' ) != $_POST['_wp_unfiltered_html_comment'] ) {
 				kses_remove_filters(); // start with a clean slate
 				kses_init_filters(); // set up the filters
-				remove_filter( 'pre_comment_content', 'wp_filter_post_kses' );
-				add_filter( 'pre_comment_content', 'wp_filter_kses' );
 			}
 		}
 	} else {
@@ -2008,7 +2006,7 @@ function wp_ajax_upload_attachment() {
 			'success' => false,
 			'data'    => array(
 				'message'  => __( 'Sorry, you are not allowed to upload files.' ),
-				'filename' => esc_html( $_FILES['async-upload']['name'] ),
+				'filename' => $_FILES['async-upload']['name'],
 			)
 		) );
 
@@ -2022,7 +2020,7 @@ function wp_ajax_upload_attachment() {
 				'success' => false,
 				'data'    => array(
 					'message'  => __( 'Sorry, you are not allowed to attach files to this post.' ),
-					'filename' => esc_html( $_FILES['async-upload']['name'] ),
+					'filename' => $_FILES['async-upload']['name'],
 				)
 			) );
 
@@ -2032,11 +2030,7 @@ function wp_ajax_upload_attachment() {
 		$post_id = null;
 	}
 
-	$post_data = ! empty( $_REQUEST['post_data'] ) ? _wp_get_allowed_postdata( _wp_translate_postdata( false, (array) $_REQUEST['post_data'] ) ) : array();
-
-	if ( is_wp_error( $post_data ) ) {
-		wp_die( $post_data->get_error_message() );
-	}
+	$post_data = isset( $_REQUEST['post_data'] ) ? $_REQUEST['post_data'] : array();
 
 	// If the context is custom header or background, make sure the uploaded file is an image.
 	if ( isset( $post_data['context'] ) && in_array( $post_data['context'], array( 'custom-header', 'custom-background' ) ) ) {
@@ -2046,7 +2040,7 @@ function wp_ajax_upload_attachment() {
 				'success' => false,
 				'data'    => array(
 					'message'  => __( 'The uploaded file is not a valid image. Please try again.' ),
-					'filename' => esc_html( $_FILES['async-upload']['name'] ),
+					'filename' => $_FILES['async-upload']['name'],
 				)
 			) );
 
@@ -2061,7 +2055,7 @@ function wp_ajax_upload_attachment() {
 			'success' => false,
 			'data'    => array(
 				'message'  => $attachment_id->get_error_message(),
-				'filename' => esc_html( $_FILES['async-upload']['name'] ),
+				'filename' => $_FILES['async-upload']['name'],
 			)
 		) );
 
@@ -2409,7 +2403,7 @@ function wp_ajax_query_attachments() {
 
 	// Filter query clauses to include filenames.
 	if ( isset( $query['s'] ) ) {
-		add_filter( 'wp_allow_query_attachment_by_filename', '__return_true' );
+		add_filter( 'posts_clauses', '_filter_query_attachment_filenames' );
 	}
 
 	/**
